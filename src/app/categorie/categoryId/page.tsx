@@ -18,32 +18,42 @@ type Product = {
 }
 
 export default function CategoryPage() {
-  const { categoryId } = useParams()
+  const params = useParams()
+  const categoryId = Number(params.categoryId) // ✅ conversion explicite
+
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [categoryName, setCategoryName] = useState('')
+  const [categoryName, setCategoryName] = useState<string>('')
 
   useEffect(() => {
+    if (!categoryId) return
+
     const fetchCategoryProducts = async () => {
       setLoading(true)
       try {
-        const { data, error } = await supabase
+        // 🔹 Produits de la catégorie
+        const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('*')
           .eq('category_id', categoryId)
           .order('created_at', { ascending: false })
 
-        if (!error && data) setProducts(data)
+        if (!productsError && productsData) {
+          setProducts(productsData)
+        }
 
-        // Récupération du nom de la catégorie
-        const { data: catData } = await supabase
+        // 🔹 Nom de la catégorie
+        const { data: categoryData, error: categoryError } = await supabase
           .from('categories')
           .select('name')
           .eq('id', categoryId)
           .single()
-        if (catData) setCategoryName(catData.name)
+
+        if (!categoryError && categoryData) {
+          setCategoryName(categoryData.name)
+        }
       } catch (err) {
-        console.error(err)
+        console.error('Erreur chargement catégorie:', err)
       } finally {
         setLoading(false)
       }
@@ -54,19 +64,25 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-[#fafbfc]">
-      <h1 className="text-3xl font-bold text-slate-900 p-6">{categoryName}</h1>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <h1 className="text-3xl font-extrabold text-slate-900 mb-6">
+          {categoryName || 'Catégorie'}
+        </h1>
 
-      {loading ? (
-        <div className="p-6">Chargement...</div>
-      ) : products.length === 0 ? (
-        <div className="p-6 text-slate-500">Aucun produit trouvé.</div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 p-6">
-          {products.map(p => (
-            <ProductCard key={p.id} {...p} />
-          ))}
-        </div>
-      )}
+        {loading ? (
+          <div className="text-slate-500">Chargement...</div>
+        ) : products.length === 0 ? (
+          <div className="text-slate-500">
+            Aucun produit trouvé dans cette catégorie.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {products.map(product => (
+              <ProductCard key={product.id} {...product} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
